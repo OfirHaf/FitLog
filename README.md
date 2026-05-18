@@ -1,135 +1,215 @@
 # FitLog
 
-Personal fitness and nutrition tracking app — log workouts, meals, sleep, hydration, and body metrics in one place, with an AI coach powered by Groq.
-
-**Stack:** FastAPI · SQLite · Streamlit · Groq (Llama 3.3 70B) · Redis (optional)
-
----
+A personal fitness and nutrition tracking dashboard: Streamlit frontend with a **FastAPI** backend and **SQLite**. Track workouts, meals, sleep, hydration, body metrics, and daily steps — with an AI coach powered by Groq and optional Redis caching.
 
 ## Screenshots
 
-| Login | Dashboard |
-|---|---|
-| ![Login](docs/screenshots/01_login.png) | ![Dashboard](docs/screenshots/02_dashboard.png) |
+### Login
 
-| Workouts | Nutrition |
-|---|---|
-| ![Workouts](docs/screenshots/03_workouts.png) | ![Nutrition](docs/screenshots/04_nutrition.png) |
+![Login page](docs/screenshots/01_login.png)
 
-| Wellness | My Progress |
-|---|---|
-| ![Wellness](docs/screenshots/06_wellness.png) | ![Progress](docs/screenshots/05_progress.png) |
+### Dashboard
+
+![Dashboard — daily summary and streak](docs/screenshots/02_dashboard.png)
+
+### Workouts
+
+![Workouts — log sets, reps, and weight](docs/screenshots/03_workouts.png)
+
+### Nutrition
+
+![Nutrition — log meals manually or with AI analysis](docs/screenshots/04_nutrition.png)
+
+### Wellness
+
+![Wellness — hydration, body metrics, and steps](docs/screenshots/06_wellness.png)
+
+### My Progress
+
+![My Progress — weekly charts and performance score](docs/screenshots/05_progress.png)
 
 ---
 
-## Quick Start
+## Stack
 
-### Requirements
+| Layer | Details |
+|---|---|
+| **Frontend** | `frontend/app.py` — Streamlit dashboard; all pages in one file. |
+| **Backend** | `app/` — **FastAPI**, **SQLModel**, **Uvicorn**; tables auto-created on startup. |
+| **Database** | **SQLite** (dev) via `aiosqlite`; swap `DATABASE_URL` for PostgreSQL in production. |
+| **AI Coach** | **Groq API** (`openai`-compatible client) — Llama 3.3 70B reads your profile and recent logs before answering. |
+| **Cache** | **Redis** with automatic in-process fallback when Redis is unavailable. |
+| **Auth** | JWT (`python-jose`) + bcrypt; 24-hour tokens, per-IP login rate limiting. |
+
+## Requirements
 
 - Python 3.12+
 - [`uv`](https://docs.astral.sh/uv/) — `pip install uv`
 - A free [Groq API key](https://console.groq.com)
 
-### 1. Clone & install
+## Quick start
 
 ```bash
 git clone <repo-url>
 cd FitLog
 uv sync
+cp .env.example .env   # then edit .env — set SECRET_KEY and GROQ_API_KEY
 ```
 
-### 2. Configure
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and set these two values:
-
-```dotenv
-SECRET_KEY=<generate with: python -c "import secrets; print(secrets.token_hex(32))">
-GROQ_API_KEY=gsk_your_key_here
-```
-
-Everything else has working defaults.
-
-### 3. Start the backend
+Start the backend:
 
 ```bash
 uv run uvicorn app.main:app --reload
 ```
 
-API runs at **http://localhost:8000** — interactive docs at **/docs**
-
-### 4. Start the frontend *(separate terminal)*
+Start the frontend in a second terminal:
 
 ```bash
 uv run streamlit run frontend/app.py
 ```
 
-Dashboard at **http://localhost:8501**
-
----
+- **Dashboard:** [http://localhost:8501](http://localhost:8501)
+- **API docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Docker Compose
 
-Runs the full stack (API + frontend + Redis) with one command.
-
 ```bash
-cp .env.example .env        # set SECRET_KEY and GROQ_API_KEY
+cp .env.example .env   # set SECRET_KEY, GROQ_API_KEY
 docker compose up -d
 ```
 
-| Service | URL |
+## Default ports
+
+| Service | Port |
 |---|---|
-| Frontend | http://localhost:8501 |
-| API | http://localhost:8000 |
-| API docs | http://localhost:8000/docs |
+| Frontend (Streamlit) | 8501 |
+| Backend (Uvicorn) | 8000 |
 
----
+## Environment
 
-## Environment Variables
+Copy `.env.example` to `.env` and fill in your keys before starting:
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `SECRET_KEY` | yes | — | JWT signing key (min 32 chars) |
-| `GROQ_API_KEY` | yes | — | Groq API key |
-| `DATABASE_URL` | no | `sqlite+aiosqlite:///./fitlog.db` | DB connection string |
-| `REDIS_URL` | no | `redis://localhost:6379/0` | Redis URL (falls back to in-memory) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | no | `1440` | Token lifetime (24 h) |
-| `GROQ_MODEL` | no | `llama-3.3-70b-versatile` | Groq model ID |
-
----
-
-## Key Files
-
-```
-FitLog/
-├── app/
-│   ├── main.py              # FastAPI app entry point
-│   ├── db.py                # Database table definitions
-│   ├── models.py            # Request / response schemas
-│   ├── security.py          # JWT + bcrypt
-│   └── routers/             # One file per feature area
-│       ├── auth.py          # Register, login, refresh token
-│       ├── workout_logs.py  # Log sets / reps / weight
-│       ├── macros.py        # Log meals + AI food analysis
-│       ├── analytics.py     # Progress charts & summaries
-│       ├── ai_assistant.py  # AI coach chat endpoint
-│       └── ...              # sleep, hydration, steps, etc.
-├── frontend/
-│   └── app.py               # Streamlit dashboard (all pages)
-├── tests/                   # pytest suite (in-memory DB)
-├── .env.example             # Environment variable template
-├── Dockerfile               # Backend image
-├── Dockerfile.frontend      # Frontend image
-└── compose.yaml             # Docker Compose stack
+```bash
+cp .env.example .env
 ```
 
----
+| Variable | Required | Description |
+|---|---|---|
+| `SECRET_KEY` | yes | JWT signing key — generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `GROQ_API_KEY` | yes | Groq API key from [console.groq.com](https://console.groq.com) |
+| `DATABASE_URL` | no | Defaults to `sqlite+aiosqlite:///./fitlog.db` |
+| `REDIS_URL` | no | Defaults to `redis://localhost:6379/0`; app runs without Redis |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | no | Token lifetime — default `1440` (24 h) |
+| `GROQ_MODEL` | no | Groq model ID — default `llama-3.3-70b-versatile` |
 
-## Running Tests
+> **Security:** never commit `.env` or production secrets to GitHub.
+
+## Features
+
+### Workout Tracking (`app/routers/workout_logs.py`)
+
+Log exercises, sets, reps, and weight per session. Each entry is linked to a fitness profile so multi-profile users keep their data separated. The exercise library is user-owned — seed it once and reuse across sessions.
+
+**API endpoints:** `GET/POST/PUT/DELETE /logs/`
+
+### Nutrition Logging (`app/routers/macros.py`)
+
+Log daily macros manually or describe a meal in plain text and get calories, protein, carbs, and fat back from the AI. Results are cached per description so identical meals don't consume extra API quota.
+
+**API endpoints:** `GET/POST/DELETE /macros/`, `POST /macros/analyze-food`
+
+### Wellness Tracking (`app/routers/sleep.py`, `hydration.py`, `body_metrics.py`, `recovery.py`, `steps.py`)
+
+Five separate trackers: sleep quality, daily hydration, body metrics (weight, body fat, waist, resting HR), recovery scores (energy, soreness, mood), and step counts. All share the same pattern — log an entry, view history, delete a record.
+
+### AI Fitness Coach (`app/routers/ai_assistant.py`)
+
+Floating chat button on every page. Before answering, the coach fetches your active profile, recent workout logs, and recent macro entries to give context-aware advice. Per-user rate limit of 30 calls per hour.
+
+**API endpoint:** `POST /ai/chat`
+
+### Analytics & Progress (`app/routers/analytics.py`)
+
+Six analytics endpoints, all Redis-cached:
+
+- Weekly workout volume (sets × reps × weight, by ISO week)
+- Strength progression with estimated 1RM (Epley formula)
+- Body metrics trend with BMI calculation
+- Nutrition trend (daily macro totals)
+- Wellness trend (sleep, hydration, composite recovery score)
+- Dashboard summary (streak, avg calories, weight change, workouts this week)
+
+### Fitness Profiles & Goals (`app/routers/profile.py`)
+
+Multiple goal-based profiles per account (muscle, weight loss, endurance, maintenance). Each profile stores weight, height, age, gender, and goal. A protein target calculator returns evidence-based g/kg multipliers per goal. Goal targets (daily steps, calories, protein, weekly workouts) are stored per profile and drive the progress rings on the dashboard.
+
+### JWT Authentication (`app/routers/auth.py`)
+
+Register, login, and refresh token endpoints. Passwords are bcrypt-hashed. Login is rate-limited to 10 attempts per IP per 60 seconds. Refresh tokens expire after 7 days; access tokens after 24 hours (configurable).
+
+## API (full list)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/register` | Create account |
+| POST | `/auth/login` | Get access + refresh tokens |
+| POST | `/auth/refresh` | Exchange refresh token for new pair |
+| GET/POST | `/profile/` | List or create fitness profiles |
+| GET/PUT | `/profile/{id}/goals` | Read or update goal targets |
+| GET | `/profile/{id}/protein-target` | Calculate daily protein target |
+| GET/POST/DELETE | `/exercises/` | Manage exercise library |
+| GET/POST/DELETE | `/logs/` | Workout log entries |
+| GET/POST/DELETE | `/macros/` | Nutrition entries |
+| POST | `/macros/analyze-food` | AI macro estimation from text |
+| GET/POST/DELETE | `/sleep/` | Sleep entries |
+| GET/POST/DELETE | `/hydration/` | Hydration entries |
+| GET/POST/DELETE | `/body-metrics/` | Body metric entries |
+| GET/POST/DELETE | `/recovery/` | Recovery entries |
+| GET/POST/DELETE | `/steps/` | Step count entries |
+| POST | `/ai/chat` | AI coach chat |
+| GET | `/analytics/summary` | Dashboard summary |
+| GET | `/analytics/workout-volume` | Weekly volume chart data |
+| GET | `/analytics/strength-progress` | Per-exercise 1RM progression |
+| GET | `/analytics/body-metrics-trend` | Weight and BMI over time |
+| GET | `/analytics/nutrition-trend` | Daily macro totals over time |
+| GET | `/analytics/wellness-trend` | Sleep, hydration, recovery over time |
+
+Full interactive docs at `/docs` (Swagger UI) when the API is running.
+
+## Development
+
+- **Backend:** Uvicorn runs with `--reload` — changes apply immediately without restarting.
+- **Frontend:** Streamlit auto-reloads on file save.
+- **Tests:** each test runs against a fresh in-memory SQLite database — `fitlog.db` is never touched.
 
 ```bash
 uv run pytest tests/ -v
+```
+
+## Repository layout
+
+```
+FitLog/
+├── compose.yaml
+├── .env.example              # copy to .env and fill in keys
+├── README.md
+├── CLAUDE.md                 # project guide
+├── docs/screenshots/         # UI images for this README
+├── app/
+│   ├── main.py               # FastAPI app, middleware, lifespan
+│   ├── db.py                 # SQLModel table definitions
+│   ├── models.py             # Pydantic request / response schemas
+│   ├── security.py           # JWT + bcrypt
+│   ├── cache.py              # Redis with in-process fallback
+│   ├── database.py           # async engine, session factory
+│   ├── exceptions.py         # domain exception hierarchy
+│   └── routers/              # one file per feature area
+├── frontend/
+│   ├── app.py                # Streamlit dashboard (all pages)
+│   └── _ai_fab.py            # floating AI coach button
+├── alembic/                  # database migrations
+├── tests/                    # pytest suite
+└── scripts/
+    ├── demo.py               # end-to-end API walkthrough
+    └── refresh.py            # bulk analytics cache refresh
 ```
