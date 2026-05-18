@@ -19,8 +19,9 @@ venv/
 *.db-shm
 *.db-wal
 
-# Test artifacts
+# Test / tool caches
 .pytest_cache/
+.ruff_cache/
 .coverage
 
 # OS
