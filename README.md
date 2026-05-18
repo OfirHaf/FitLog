@@ -18,7 +18,7 @@ A personal fitness and nutrition tracking dashboard: Streamlit frontend with a *
 
 ### Nutrition
 
-![Nutrition — log meals manually or with AI analysis](docs/screenshots/04_nutrition.png)
+![Nutrition — AI analysis returns calories, protein, carbs, and fat from a plain-text meal description](docs/screenshots/04_nutrition_ai.png)
 
 ### Wellness
 
@@ -27,6 +27,10 @@ A personal fitness and nutrition tracking dashboard: Streamlit frontend with a *
 ### My Progress
 
 ![My Progress — weekly charts and performance score](docs/screenshots/05_progress.png)
+
+### AI Coach
+
+![AI Coach — floating chat panel with context-aware advice based on your profile and recent logs](docs/screenshots/07_ai_coach.png)
 
 ---
 
