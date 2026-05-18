@@ -27,15 +27,42 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    fitness_profiles: list["FitnessProfile"] = Relationship(back_populates="owner")
-    exercises: list["Exercise"] = Relationship(back_populates="owner")
-    workout_logs: list["WorkoutLog"] = Relationship(back_populates="owner")
-    macro_entries: list["MacroEntry"] = Relationship(back_populates="owner")
-    sleep_entries: list["SleepEntry"] = Relationship(back_populates="owner")
-    hydration_entries: list["HydrationEntry"] = Relationship(back_populates="owner")
-    body_metric_entries: list["BodyMetricEntry"] = Relationship(back_populates="owner")
-    recovery_entries: list["RecoveryEntry"] = Relationship(back_populates="owner")
-    step_entries: list["StepEntry"] = Relationship(back_populates="owner")
+    fitness_profiles: list["FitnessProfile"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    exercises: list["Exercise"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    workout_logs: list["WorkoutLog"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    macro_entries: list["MacroEntry"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    sleep_entries: list["SleepEntry"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    hydration_entries: list["HydrationEntry"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    body_metric_entries: list["BodyMetricEntry"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    recovery_entries: list["RecoveryEntry"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    step_entries: list["StepEntry"] = Relationship(
+        back_populates="owner",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class FitnessProfileBase(SQLModel):

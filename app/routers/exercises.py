@@ -1,6 +1,6 @@
 """Exercises CRUD router with database persistence."""
 from fastapi import APIRouter, status, Query, Depends
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, ConflictError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -50,6 +50,15 @@ async def create_exercise(
     session: AsyncSession = Depends(get_session)
 ):
     """Create a new exercise for the authenticated user."""
+    # Prevent duplicate exercise names per user
+    dup = await session.execute(
+        select(Exercise).where(
+            (Exercise.owner_id == current_user.id) & (Exercise.name == body.name)
+        )
+    )
+    if dup.scalars().first():
+        raise ConflictError(f"You already have an exercise named '{body.name}'")
+
     exercise = Exercise(
         **body.model_dump(),
         owner_id=current_user.id

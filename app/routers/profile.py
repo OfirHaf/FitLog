@@ -13,7 +13,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, status, Depends, Header
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, ConflictError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -132,6 +132,15 @@ async def create_profile(
     session: AsyncSession = Depends(get_session),
 ):
     """Create a new fitness profile for the authenticated user."""
+    # Prevent duplicate profile names per user
+    dup = await session.execute(
+        select(FitnessProfile).where(
+            (FitnessProfile.user_id == current_user.id) & (FitnessProfile.name == body.name)
+        )
+    )
+    if dup.scalars().first():
+        raise ConflictError(f"You already have a profile named '{body.name}'")
+
     new_profile = FitnessProfile(
         user_id=current_user.id,
         name=body.name,

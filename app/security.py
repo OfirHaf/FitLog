@@ -84,6 +84,25 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
+REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+
+def create_refresh_token(data: dict) -> str:
+    """Create a long-lived JWT refresh token (7 days)."""
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_refresh_token(token: str) -> Optional[dict]:
+    """Verify a refresh token. Returns None if invalid or wrong type."""
+    payload = verify_token(token)
+    if payload and payload.get("type") == "refresh":
+        return payload
+    return None
+
+
 def verify_token(token: str) -> Optional[dict]:
     """Verify and decode a JWT token. Returns None if invalid."""
     try:

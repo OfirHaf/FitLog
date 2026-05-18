@@ -59,13 +59,8 @@ async def analyze_food_nutrition(
     try:
         client = _get_groq_client()
 
-        prompt = (
-            f"Analyze this food and return nutritional estimates as JSON.\n"
-            f"Food: {body.food_description}\n\n"
-            f"Return exactly these keys: calories (kcal, number), protein_g (number), "
-            f"carbs_g (number), fat_g (number), analysis (string, 1-2 sentences). "
-            f"Use standard nutrition database values. Be realistic."
-        )
+        # Sanitize: truncate to prevent excessively long inputs
+        safe_description = body.food_description[:500]
 
         response = await client.chat.completions.create(
             model=settings.groq_model,
@@ -73,12 +68,24 @@ async def analyze_food_nutrition(
                 {
                     "role": "system",
                     "content": (
-                        "You are a nutrition expert. "
-                        "Always respond with a single valid JSON object containing: "
-                        "calories, protein_g, carbs_g, fat_g, analysis."
+                        "You are a nutrition database expert. "
+                        "The user will provide a food item description. "
+                        "Respond ONLY with a valid JSON object containing exactly these keys: "
+                        "calories (number, kcal), protein_g (number), carbs_g (number), "
+                        "fat_g (number), analysis (string, 1-2 sentences). "
+                        "Use standard nutrition database values. Be realistic and accurate."
                     ),
                 },
-                {"role": "user", "content": prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        "Food item to analyze:\n"
+                        "---\n"
+                        f"{safe_description}\n"
+                        "---\n"
+                        "Return the nutritional breakdown as JSON."
+                    ),
+                },
             ],
             temperature=0.3,
             max_tokens=500,

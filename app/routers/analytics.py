@@ -349,7 +349,11 @@ async def get_body_metrics_trend(
 ) -> list[BodyMetricsTrendOut]:
     cutoff = date.today() - timedelta(days=days)
 
-    # Fetch user's latest profile for BMI calculation
+    # Fetch user's latest profile for BMI calculation.
+    # Note: BMI is computed using the current profile height for all historical
+    # entries. BodyMetricEntry does not store height, so historical height at
+    # time of entry is unavailable. For adults this is acceptable since height
+    # is stable; a future improvement could add height_cm to BodyMetricEntry.
     stmt = select(FitnessProfile).where(
         FitnessProfile.user_id == current_user.id
     ).order_by(desc(FitnessProfile.created_at))

@@ -29,6 +29,7 @@ async def create_db_and_tables():
     """Create all database tables."""
     async with engine.begin() as conn:
         await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+        await conn.exec_driver_sql("PRAGMA foreign_keys = ON")
         await conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
         await conn.exec_driver_sql("PRAGMA cache_size=-64000")
         await conn.exec_driver_sql("PRAGMA temp_store=MEMORY")
@@ -37,10 +38,21 @@ async def create_db_and_tables():
 
 
 def _migrate_add_profile_id_sqlite(sync_conn):
-    """Add profile_id column and index to existing SQLite tables if missing."""
+    """
+    Legacy schema migration shim for existing SQLite databases.
+
+    Adds profile_id column to workout_logs and macro_entries if missing.
+    This runs idempotently at startup for backwards compatibility with databases
+    created before the Alembic migration was added.
+
+    New installations: these columns are created by SQLModel.metadata.create_all().
+    Existing installations: this shim adds the columns without data loss.
+    """
     result = sync_conn.exec_driver_sql("PRAGMA table_info(workout_logs)")
     columns = [row[1] for row in result.fetchall()]
-    if "profile_id" not in columns:
+    # Only ALTER if the table exists (non-empty columns) but is missing profile_id.
+    # On fresh databases the table does not exist yet; create_all creates it correctly.
+    if columns and "profile_id" not in columns:
         sync_conn.exec_driver_sql(
             "ALTER TABLE workout_logs ADD COLUMN profile_id VARCHAR"
         )
@@ -50,7 +62,7 @@ def _migrate_add_profile_id_sqlite(sync_conn):
 
     result = sync_conn.exec_driver_sql("PRAGMA table_info(macro_entries)")
     columns = [row[1] for row in result.fetchall()]
-    if "profile_id" not in columns:
+    if columns and "profile_id" not in columns:
         sync_conn.exec_driver_sql(
             "ALTER TABLE macro_entries ADD COLUMN profile_id VARCHAR"
         )

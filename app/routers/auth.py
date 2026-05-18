@@ -21,6 +21,8 @@ from app.security import (
     hash_password,
     verify_password,
     create_access_token,
+    create_refresh_token,
+    verify_refresh_token,
     verify_token,
     validate_password_strength,
 )
@@ -70,7 +72,7 @@ async def register(body: UserRegister, session: AsyncSession = Depends(get_sessi
     existing_user = result.scalars().first()
 
     if existing_user:
-        raise ConflictError("Email already registered. Please login instead.")
+        raise ConflictError("An account with those details already exists.")
 
     hashed_password = hash_password(body.password)
 
@@ -85,9 +87,11 @@ async def register(body: UserRegister, session: AsyncSession = Depends(get_sessi
     await session.refresh(new_user)
 
     token = create_access_token({"user_id": str(new_user.id), "email": new_user.email})
+    refresh_token = create_refresh_token({"user_id": str(new_user.id), "email": new_user.email})
 
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
         user_id=str(new_user.id),
         name=new_user.name,
     )
@@ -116,9 +120,11 @@ async def login(body: UserLogin, session: AsyncSession = Depends(get_session)):
 
     # Create JWT token
     token = create_access_token({"user_id": str(user.id), "email": user.email})
+    refresh_token = create_refresh_token({"user_id": str(user.id), "email": user.email})
 
     return TokenResponse(
         access_token=token,
+        refresh_token=refresh_token,
         user_id=str(user.id),
         name=user.name,
     )
@@ -167,6 +173,44 @@ async def get_current_user(
 async def logout():
     """Logout user (client should discard token)."""
     return {"message": "Logged out successfully. Please discard your token."}
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Refresh access token",
+    description="Exchange a valid refresh token for a new access token",
+)
+async def refresh_token(
+    authorization: str = Header(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Refresh an access token using a refresh token."""
+    if not authorization:
+        raise AuthError("Missing authorization header")
+    parts = authorization.split(" ")
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise AuthError("Invalid authorization header format. Expected 'Bearer <token>'")
+
+    payload = verify_refresh_token(parts[1])
+    if not payload:
+        raise AuthError("Invalid or expired refresh token")
+
+    user_id = payload.get("user_id")
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
+    user = result.scalars().first()
+    if not user:
+        raise NotFoundError("User not found")
+
+    new_access = create_access_token({"user_id": str(user.id), "email": user.email})
+    new_refresh = create_refresh_token({"user_id": str(user.id), "email": user.email})
+    return TokenResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        user_id=str(user.id),
+        name=user.name,
+    )
 
 
 # ─────────────────────────────────────────────

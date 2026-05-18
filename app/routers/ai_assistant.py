@@ -18,12 +18,35 @@ from sqlalchemy import desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+import time as _time
+from collections import defaultdict
+from threading import Lock as _Lock
+
 from app.config import settings
 from app.database import get_session
 from app.db import FitnessProfile, WorkoutLog, MacroEntry, User
-from app.exceptions import NotFoundError, ExternalServiceError
+from app.exceptions import NotFoundError, ExternalServiceError, RateLimitError
 from app.models import ChatRequest, ChatResponse
 from app.routers.auth import get_current_user_from_header
+
+_AI_RATE: dict[str, list[float]] = defaultdict(list)
+_AI_RATE_LOCK = _Lock()
+_AI_MAX_CALLS = 30       # per user per hour
+_AI_WINDOW = 3600.0      # 1 hour
+
+
+def _check_ai_rate(user_id: str) -> None:
+    """Raise RateLimitError if user exceeded AI call quota."""
+    now = _time.monotonic()
+    with _AI_RATE_LOCK:
+        calls = _AI_RATE[user_id]
+        _AI_RATE[user_id] = [t for t in calls if now - t < _AI_WINDOW]
+        if len(_AI_RATE[user_id]) >= _AI_MAX_CALLS:
+            raise RateLimitError(
+                f"AI rate limit reached ({_AI_MAX_CALLS} messages/hour). Please wait before sending more.",
+                retry_after=int(_AI_WINDOW),
+            )
+        _AI_RATE[user_id].append(now)
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +100,12 @@ def _get_client() -> AsyncOpenAI:
     return _groq_client
 
 
-async def _fetch_recent_workouts(user_id: str, session: AsyncSession) -> list:
-    """Fetch the 5 most recent workout logs for a user."""
+async def _fetch_recent_workouts(user_id: str, profile_id: str, session: AsyncSession) -> list:
+    """Fetch the 5 most recent workout logs scoped to a profile."""
     stmt = (
         select(WorkoutLog)
         .where(WorkoutLog.owner_id == user_id)
+        .where(WorkoutLog.profile_id == profile_id)
         .order_by(desc(WorkoutLog.created_at))
         .limit(5)
     )
@@ -89,11 +113,12 @@ async def _fetch_recent_workouts(user_id: str, session: AsyncSession) -> list:
     return result.scalars().all()
 
 
-async def _fetch_recent_macros(user_id: str, session: AsyncSession) -> list:
-    """Fetch the 3 most recent macro entries for a user."""
+async def _fetch_recent_macros(user_id: str, profile_id: str, session: AsyncSession) -> list:
+    """Fetch the 3 most recent macro entries scoped to a profile."""
     stmt = (
         select(MacroEntry)
         .where(MacroEntry.owner_id == user_id)
+        .where(MacroEntry.profile_id == profile_id)
         .order_by(desc(MacroEntry.created_at))
         .limit(3)
     )
@@ -108,8 +133,8 @@ async def _build_context(profile: FitnessProfile, session: AsyncSession) -> str:
         return cached
 
     # Sequential fetch — AsyncSession is not safe for concurrent coroutines
-    recent_logs = await _fetch_recent_workouts(profile.user_id, session)
-    recent_macros = await _fetch_recent_macros(profile.user_id, session)
+    recent_logs = await _fetch_recent_workouts(profile.user_id, profile.id, session)
+    recent_macros = await _fetch_recent_macros(profile.user_id, profile.id, session)
 
     goal_label = {
         "muscle": "Muscle Building / Hypertrophy",
@@ -168,6 +193,8 @@ async def chat(
     current_user: User = Depends(get_current_user_from_header),
     session: AsyncSession = Depends(get_session),
 ) -> ChatResponse:
+    _check_ai_rate(current_user.id)
+
     # Check if profile exists and belongs to current user
     stmt = select(FitnessProfile).where(
         (FitnessProfile.id == body.profile_id)

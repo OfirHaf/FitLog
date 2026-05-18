@@ -384,6 +384,69 @@ label { color: var(--muted) !important; }
   box-shadow: 0 4px 12px rgba(5,150,105,0.2);
 }
 
+/* ── Split-panel login ── */
+.login-page-shell {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+.lp-form-side {
+  flex: 0 0 50%; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 3rem 3.5rem;
+  overflow-y: auto;
+}
+.lp-visual-side {
+  flex: 0 0 50%;
+  position: relative; overflow: hidden;
+  background: linear-gradient(160deg,#2d1b4e 0%,#6a3fa3 35%,#e87040 70%,#ffd89b 100%);
+}
+.lp-visual-side svg { width: 100%; height: 100%; position: absolute; inset: 0; }
+.lp-inner { width: 100%; max-width: 370px; }
+.lp-brand {
+  font-size: 2rem; font-weight: 800; letter-spacing: -1.5px;
+  color: #0f172a; margin-bottom: .2rem;
+}
+.lp-tagline { color: #64748b; font-size: .88rem; margin-bottom: 2.2rem; }
+.lp-tab-bar {
+  display: flex; gap: .5rem;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 1.6rem;
+}
+.lp-tab {
+  padding: .5rem 1rem; font-size: .9rem; font-weight: 600;
+  color: #94a3b8; cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: color .15s, border-color .15s;
+}
+.lp-tab.active { color: #059669; border-bottom-color: #059669; }
+.lp-field {
+  width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px;
+  padding: .72rem 1rem; font-size: .92rem; color: #0f172a;
+  outline: none; transition: border-color .15s, box-shadow .15s;
+  margin-bottom: .85rem; background: #f8fafc;
+}
+.lp-field:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); background:#fff; }
+.lp-btn {
+  width: 100%; background: #059669; color: #fff;
+  border: none; border-radius: 10px; padding: .8rem;
+  font-size: .95rem; font-weight: 700; cursor: pointer;
+  transition: background .15s, transform .1s;
+  margin-top: .25rem;
+}
+.lp-btn:hover { background: #047857; transform: translateY(-1px); }
+.lp-footer { text-align: center; margin-top: 1.2rem; font-size: .82rem; color: #94a3b8; }
+.lp-footer a { color: #059669; text-decoration: none; font-weight: 600; }
+.lp-divider {
+  display: flex; align-items: center; gap: .75rem;
+  margin: 1.2rem 0; color: #cbd5e1; font-size: .8rem;
+}
+.lp-divider::before, .lp-divider::after {
+  content: ''; flex: 1; height: 1px; background: #e2e8f0;
+}
+.lp-err { color:#dc2626; font-size:.82rem; margin-bottom:.75rem; padding:.5rem .75rem; background:#fef2f2; border-radius:8px; }
+.lp-ok  { color:#059669; font-size:.82rem; margin-bottom:.75rem; padding:.5rem .75rem; background:#f0fdf4; border-radius:8px; }
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -779,6 +842,57 @@ def _create(endpoint: str, data: dict, clear_fn=None):
     return r
 
 
+# ── Overlay spinner + toast helpers ──────────────────────────
+
+from contextlib import contextmanager as _cm
+
+@_cm
+def _saving_overlay(msg: str = "שומר..."):
+    """Full-page centered loading overlay — replaces st.spinner."""
+    _dark   = st.session_state.get("theme") == "dark"
+    card_bg = "#1A1A1A" if _dark else "#FFFFFF"
+    txt     = "#F1F5F9" if _dark else "#0F172A"
+    slot = st.empty()
+    slot.markdown(f"""
+    <div style="position:fixed;inset:0;
+      background:rgba(0,0,0,{'0.65' if _dark else '0.45'});
+      backdrop-filter:blur(4px);z-index:99999;
+      display:flex;align-items:center;justify-content:center;">
+      <div style="background:{card_bg};border-radius:18px;
+        padding:2rem 3rem;text-align:center;
+        box-shadow:0 24px 80px rgba(0,0,0,{'0.55' if _dark else '0.2'});
+        min-width:200px;">
+        <div style="width:48px;height:48px;
+          border:4px solid rgba(5,150,105,0.2);
+          border-top-color:#059669;border-radius:50%;
+          animation:_ovSpin .7s linear infinite;
+          margin:0 auto 1rem auto;"></div>
+        <div style="font-size:.95rem;font-weight:700;
+          color:{txt};direction:rtl;">{msg}</div>
+      </div>
+    </div>
+    <style>
+      @keyframes _ovSpin {{
+        from {{ transform:rotate(0deg); }}
+        to   {{ transform:rotate(360deg); }}
+      }}
+    </style>
+    """, unsafe_allow_html=True)
+    try:
+        yield
+    finally:
+        slot.empty()
+
+
+def _queue_toast(msg: str = "תיעוד הושלם") -> None:
+    """Store a success message — shown at next render after st.rerun()."""
+    st.session_state["_pending_toast"] = msg
+
+
+def _record_saved() -> None:
+    _queue_toast("תיעוד הושלם")
+
+
 # ── UI helpers ────────────────────────────────────────────────
 
 def _kpi(label: str, value: str, sub: str = "", accent: str = "var(--accent)") -> None:
@@ -978,50 +1092,220 @@ def _score_cockpit_html(score: int, grade: str, grade_color: str, motivation: st
 
 # ── Login page ────────────────────────────────────────────────
 
+_FITNESS_SVG = """
+<svg viewBox="0 0 480 460" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display:block;max-height:90vh;">
+  <defs>
+    <linearGradient id="fit-bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%"   stop-color="#f0e8ff"/>
+      <stop offset="55%"  stop-color="#e2cff7"/>
+      <stop offset="100%" stop-color="#ffd6a5"/>
+    </linearGradient>
+    <linearGradient id="fit-fig" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#9b72cf"/>
+      <stop offset="100%" stop-color="#7c5cbf"/>
+    </linearGradient>
+    <linearGradient id="fit-bell" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#6a3fa3"/>
+      <stop offset="100%" stop-color="#9b72cf"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="480" height="460" fill="url(#fit-bg)"/>
+
+  <!-- Decorative rings -->
+  <circle cx="240" cy="270" r="185" fill="none" stroke="#c8a8e9" stroke-width="36" opacity="0.35"/>
+  <circle cx="240" cy="270" r="148" fill="none" stroke="#dac4f5" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="240" cy="270" r="112" fill="#f7f0ff" opacity="0.55"/>
+
+  <!-- Head -->
+  <circle cx="240" cy="148" r="26" fill="url(#fit-fig)"/>
+  <!-- Neck -->
+  <rect x="232" y="172" width="16" height="14" rx="4" fill="url(#fit-fig)"/>
+  <!-- Torso -->
+  <rect x="210" y="186" width="60" height="72" rx="14" fill="url(#fit-fig)"/>
+  <!-- Left upper arm -->
+  <line x1="212" y1="206" x2="148" y2="156" stroke="#9b72cf" stroke-width="20" stroke-linecap="round"/>
+  <!-- Left forearm up -->
+  <line x1="148" y1="156" x2="148" y2="116" stroke="#9b72cf" stroke-width="18" stroke-linecap="round"/>
+  <!-- Right upper arm -->
+  <line x1="268" y1="206" x2="332" y2="156" stroke="#9b72cf" stroke-width="20" stroke-linecap="round"/>
+  <!-- Right forearm up -->
+  <line x1="332" y1="156" x2="332" y2="116" stroke="#9b72cf" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- Left dumbbell bar -->
+  <rect x="116" y="100" width="64" height="16" rx="8" fill="url(#fit-bell)"/>
+  <!-- Left plates -->
+  <rect x="108" y="93"  width="16" height="30" rx="5" fill="#6a3fa3"/>
+  <rect x="176" y="93"  width="16" height="30" rx="5" fill="#6a3fa3"/>
+  <!-- Right dumbbell bar -->
+  <rect x="300" y="100" width="64" height="16" rx="8" fill="url(#fit-bell)"/>
+  <!-- Right plates -->
+  <rect x="292" y="93"  width="16" height="30" rx="5" fill="#6a3fa3"/>
+  <rect x="360" y="93"  width="16" height="30" rx="5" fill="#6a3fa3"/>
+
+  <!-- Legs -->
+  <line x1="228" y1="258" x2="196" y2="348" stroke="#9b72cf" stroke-width="20" stroke-linecap="round"/>
+  <line x1="252" y1="258" x2="284" y2="348" stroke="#9b72cf" stroke-width="20" stroke-linecap="round"/>
+  <!-- Feet -->
+  <rect x="172" y="344" width="44" height="18" rx="9" fill="#6a3fa3"/>
+  <rect x="264" y="344" width="44" height="18" rx="9" fill="#6a3fa3"/>
+
+  <!-- Energy sparks -->
+  <line x1="104" y1="86"  x2="84"  y2="66"  stroke="#e87040" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+  <line x1="94"  y1="96"  x2="70"  y2="86"  stroke="#e87040" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <line x1="376" y1="86"  x2="396" y2="66"  stroke="#e87040" stroke-width="3.5" stroke-linecap="round" opacity="0.8"/>
+  <line x1="386" y1="96"  x2="410" y2="86"  stroke="#e87040" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Floor dashes -->
+  <line x1="80" y1="368" x2="400" y2="368" stroke="#c4a0e8" stroke-width="1.5" stroke-dasharray="10 6" opacity="0.7"/>
+
+  <!-- Labels -->
+  <text x="240" y="410" text-anchor="middle" font-family="Inter,sans-serif" font-size="21" font-weight="700" fill="#6a3fa3">Train Hard.</text>
+  <text x="240" y="438" text-anchor="middle" font-family="Inter,sans-serif" font-size="21" font-weight="700" fill="#e87040">Track Smarter.</text>
+
+  <!-- Floating dots -->
+  <circle cx="58"  cy="175" r="7"   fill="#c8a8e9" opacity="0.5"/>
+  <circle cx="44"  cy="205" r="4.5" fill="#e87040" opacity="0.4"/>
+  <circle cx="422" cy="215" r="7"   fill="#c8a8e9" opacity="0.5"/>
+  <circle cx="436" cy="245" r="4.5" fill="#e87040" opacity="0.35"/>
+</svg>
+"""
+
 def show_login():
-    st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
+    # CSS for chrome-hiding and form styling (reliable selectors only)
     st.markdown("""
-    <div style="text-align:center; margin-bottom:2rem;">
-      <div class="login-logo" style="font-family:'Inter',sans-serif;font-size:22px;font-weight:800;letter-spacing:-1px;">FL</div>
-      <h1 style="margin:0; font-size:1.75rem; font-weight:800;">FitLog</h1>
-      <p style="margin:0.4rem 0 0; color:var(--muted); font-size:0.9rem;">Professional Fitness &amp; Nutrition Tracker</p>
-    </div>""", unsafe_allow_html=True)
+    <style>
+    [data-testid="stSidebar"],
+    header[data-testid="stHeader"],
+    #MainMenu, footer { display: none !important; }
 
-    tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
+    .stApp { overflow: hidden; }
+    .main .block-container {
+        padding: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
 
-    with tab_in:
-        with st.form("login"):
-            email = st.text_input("Email", placeholder="you@email.com")
-            pw = st.text_input("Password", type="password")
-            if st.form_submit_button("Sign In", use_container_width=True):
-                if email and pw:
-                    r = api_login(email.strip(), pw)
-                    if r:
-                        st.session_state.update(logged_in=True, token=r.get("access_token", ""), user=r.get("user", {}))
-                        st.rerun()
-                else:
-                    st.error("Please fill in all fields")
+    /* Form widget styling */
+    .lp-brand {
+        font-size: 2rem; font-weight: 800; letter-spacing: -1.5px;
+        color: #0f172a; margin: 0 0 .3rem; font-family: Inter, sans-serif;
+    }
+    .lp-tagline {
+        color: #64748b; font-size: .88rem;
+        margin: 0 0 1.8rem; font-family: Inter, sans-serif;
+    }
+    /* ── Tabs ── */
+    [data-testid="stTabs"] [role="tab"] { color: #64748b !important; font-weight: 600 !important; }
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: #059669 !important; }
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"] { background: #059669 !important; }
+    /* Tab panel content must be visible on white */
+    [data-testid="stTabs"] [role="tabpanel"] { background: #fff !important; }
+    [data-testid="stTabs"] [role="tabpanel"] * { color: #0f172a !important; }
+    /* ── Inputs ── */
+    [data-testid="stTextInput"] input {
+        border: 1.5px solid #e2e8f0 !important;
+        border-radius: 10px !important;
+        background: #f8fafc !important;
+        color: #0f172a !important;
+    }
+    [data-testid="stTextInput"] input:focus {
+        border-color: #059669 !important;
+        box-shadow: 0 0 0 3px rgba(5,150,105,.12) !important;
+        background: #fff !important;
+    }
+    [data-testid="stTextInput"] input::placeholder { color: #94a3b8 !important; }
+    /* ── Submit button ── */
+    [data-testid="stFormSubmitButton"] > button {
+        background: #059669 !important; color: #fff !important;
+        border: none !important; border-radius: 10px !important;
+        font-weight: 700 !important; font-size: .95rem !important;
+    }
+    [data-testid="stFormSubmitButton"] > button:hover { background: #047857 !important; }
+    /* ── Labels & text ── */
+    label { color: #374151 !important; font-size: .85rem !important; font-weight: 500 !important; }
+    [data-testid="stTextInput"] label { color: #374151 !important; }
+    p, span, div { color: #0f172a; }
+    </style>
 
-    with tab_up:
-        with st.form("register"):
-            name = st.text_input("Full Name")
-            email = st.text_input("Email")
-            pw = st.text_input("Password", type="password", placeholder="Min 8 characters")
-            pw2 = st.text_input("Confirm Password", type="password")
-            if st.form_submit_button("Create Account", use_container_width=True):
-                if not (name and email and pw):
-                    st.error("Please fill in all fields")
-                elif pw != pw2:
-                    st.error("Passwords don't match")
-                elif len(pw) < 8:
-                    st.error("Password must be at least 8 characters")
-                else:
-                    r = api_register(email.strip(), pw, name.strip())
-                    if r:
-                        st.session_state.update(logged_in=True, token=r.get("access_token", ""), user=r.get("user", {}))
-                        st.rerun()
+    <script>
+    (function applyLoginLayout() {
+        var block = document.querySelector('[data-testid="stHorizontalBlock"]');
+        if (!block) { setTimeout(applyLoginLayout, 80); return; }
+        var cols = block.querySelectorAll('[data-testid="stColumn"]');
+        if (cols.length < 2) { setTimeout(applyLoginLayout, 80); return; }
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        // Row
+        block.style.cssText += 'gap:0!important;align-items:stretch!important;';
+
+        // Left col — white form panel
+        var L = cols[0];
+        L.style.cssText += 'background:#fff!important;height:100vh!important;' +
+            'display:flex!important;flex-direction:column!important;' +
+            'justify-content:center!important;padding:2.5rem 3rem!important;overflow-y:auto!important;';
+
+        // Right col — gradient visual, no scroll
+        var R = cols[1];
+        R.style.cssText += 'background:linear-gradient(140deg,#f0e8ff 0%,#e2cff7 50%,#ffd6a5 100%)!important;' +
+            'height:100vh!important;display:flex!important;' +
+            'align-items:center!important;justify-content:center!important;overflow:hidden!important;padding:1.5rem!important;';
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
+    col_left, col_right = st.columns([1, 1])
+
+    with col_left:
+        st.markdown("""
+        <p class="lp-brand">FitLog</p>
+        <p class="lp-tagline">Track every rep, every meal, every goal.</p>
+        """, unsafe_allow_html=True)
+
+        tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
+
+        with tab_in:
+            with st.form("login"):
+                email = st.text_input("Email", placeholder="you@email.com")
+                pw    = st.text_input("Password", type="password", placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022")
+                if st.form_submit_button("Sign In", use_container_width=True):
+                    if email and pw:
+                        r = api_login(email.strip(), pw)
+                        if r:
+                            st.session_state.update(
+                                logged_in=True,
+                                token=r.get("access_token", ""),
+                                user=r.get("user", {}),
+                            )
+                            st.rerun()
+                    else:
+                        st.error("Please fill in all fields")
+
+        with tab_up:
+            with st.form("register"):
+                name  = st.text_input("Full Name", placeholder="Alex Johnson")
+                email = st.text_input("Email", placeholder="you@email.com")
+                pw    = st.text_input("Password", type="password", placeholder="Min 8 characters")
+                pw2   = st.text_input("Confirm Password", type="password")
+                if st.form_submit_button("Create Account", use_container_width=True):
+                    if not (name and email and pw):
+                        st.error("Please fill in all fields")
+                    elif pw != pw2:
+                        st.error("Passwords don't match")
+                    elif len(pw) < 8:
+                        st.error("Password must be at least 8 characters")
+                    else:
+                        r = api_register(email.strip(), pw, name.strip())
+                        if r:
+                            st.session_state.update(
+                                logged_in=True,
+                                token=r.get("access_token", ""),
+                                user=r.get("user", {}),
+                            )
+                            st.rerun()
+
+    with col_right:
+        st.markdown(_FITNESS_SVG, unsafe_allow_html=True)
 
 
 # ── Achievement check (fires once per login session) ──────────
@@ -1355,13 +1639,14 @@ def show_workouts():
                 with c3: weight = st.number_input("Weight (kg)", 0.0, 1000.0, 0.0, 2.5)
                 notes = st.text_input("Notes", placeholder="How did it feel?")
                 if st.form_submit_button("Log Workout", use_container_width=True):
-                    r = _create("/logs/", {
-                        "profile_id": pid, "exercise_id": ex_opts[sel],
-                        "log_date": str(w_date), "sets": int(sets), "reps": int(reps),
-                        "weight_kg": float(weight), "notes": notes or None,
-                    }, get_workout_logs.clear)
+                    with _saving_overlay("שומר אימון..."):
+                        r = _create("/logs/", {
+                            "profile_id": pid, "exercise_id": ex_opts[sel],
+                            "log_date": str(w_date), "sets": int(sets), "reps": int(reps),
+                            "weight_kg": float(weight), "notes": notes or None,
+                        }, lambda: (get_workout_logs.clear(), get_analytics_workouts.clear()))
                     if r:
-                        st.success("Workout logged!")
+                        _record_saved()
                         st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1385,8 +1670,11 @@ def show_workouts():
                         st.caption(f"{log['sets']} × {log['reps']} @ {log['weight_kg']}kg")
                     with c3:
                         if st.button("×", key=f"del_log_{log['id']}_{idx}"):
-                            if _delete(f"/logs/{log['id']}"):
+                            with _saving_overlay("מוחק..."):
+                                ok = _delete(f"/logs/{log['id']}")
+                            if ok:
                                 get_workout_logs.clear()
+                                get_analytics_workouts.clear()
                                 st.rerun()
 
     with tab_ex:
@@ -1400,10 +1688,10 @@ def show_workouts():
                 unsafe_allow_html=True,
             )
             if st.button("Load Common Exercises", use_container_width=True):
-                with st.spinner("Adding exercises..."):
+                with _saving_overlay("טוען תרגילים..."):
                     added = _seed_exercises(token)
                 if added:
-                    st.success(f"Added {added} exercises!")
+                    st.toast(f"✅ נוספו {added} תרגילים", icon=None)
                     st.rerun()
                 else:
                     st.error("Could not add exercises — is the backend running?")
@@ -1426,7 +1714,9 @@ def show_workouts():
                         st.caption(e.get("muscle_group","").replace("-", " ").title())
                     with c3:
                         if st.button("×", key=f"del_ex_{e['id']}_{idx}"):
-                            if _delete(f"/exercises/{e['id']}"):
+                            with _saving_overlay("מוחק..."):
+                                ok = _delete(f"/exercises/{e['id']}")
+                            if ok:
                                 get_exercises.clear()
                                 st.rerun()
 
@@ -1449,14 +1739,15 @@ def show_workouts():
                     if not ex_name.strip():
                         st.error("Exercise name is required.")
                     else:
-                        r = _create("/exercises/", {
-                            "name": ex_name.strip(),
-                            "category": ex_cat,
-                            "muscle_group": ex_muscle,
-                            "description": ex_desc.strip() or None,
-                        }, get_exercises.clear)
+                        with _saving_overlay("מוסיף תרגיל..."):
+                            r = _create("/exercises/", {
+                                "name": ex_name.strip(),
+                                "category": ex_cat,
+                                "muscle_group": ex_muscle,
+                                "description": ex_desc.strip() or None,
+                            }, get_exercises.clear)
                         if r:
-                            st.success(f"Added '{r['name']}'!")
+                            st.toast(f"✅ '{r['name']}' נוסף", icon=None)
                             get_exercises.clear()
                             st.rerun()
                         else:
@@ -1488,14 +1779,15 @@ def show_nutrition():
                     fat   = st.number_input("Fat (g)", 0, 1000, 15)
                 notes = st.text_input("Description", placeholder="e.g., Chicken & rice")
                 if st.form_submit_button("Log Meal", use_container_width=True):
-                    r = _create("/macros/", {
-                        "profile_id": pid, "entry_date": str(m_date),
-                        "calories": float(cals), "protein_g": float(prot),
-                        "carbs_g": float(carbs), "fat_g": float(fat),
-                        "notes": notes or None,
-                    }, get_macros.clear)
+                    with _saving_overlay("שומר ארוחה..."):
+                        r = _create("/macros/", {
+                            "profile_id": pid, "entry_date": str(m_date),
+                            "calories": float(cals), "protein_g": float(prot),
+                            "carbs_g": float(carbs), "fat_g": float(fat),
+                            "notes": notes or None,
+                        }, lambda: (get_macros.clear(), get_analytics_macros.clear()))
                     if r:
-                        st.success("Meal logged!")
+                        _record_saved()
                         st.rerun()
         else:
             _section_hdr("AI Meal Analysis")
@@ -1505,7 +1797,7 @@ def show_nutrition():
                 if not food_desc or len(food_desc) < 3:
                     st.error("Please describe your meal")
                 else:
-                    with st.spinner("Analyzing with AI..."):
+                    with _saving_overlay("מנתח עם AI..."):
                         try:
                             r = _client().post(
                                 "/macros/analyze-food",
@@ -1545,14 +1837,15 @@ def show_nutrition():
                 with c4: st.metric("Fat",     f"{data['fat_g']:.1f}g")
                 if data.get("analysis"): st.info(f"💭 {data['analysis']}")
                 if st.button("Save Entry", use_container_width=True):
-                    r = _create("/macros/", {
-                        "profile_id": pid, "entry_date": st.session_state.ai_nutrition_date,
-                        "calories": data["calories"], "protein_g": data["protein_g"],
-                        "carbs_g": data["carbs_g"], "fat_g": data["fat_g"],
-                        "notes": st.session_state.get("ai_nutrition_desc","")[:100],
-                    }, get_macros.clear)
+                    with _saving_overlay("שומר ארוחה..."):
+                        r = _create("/macros/", {
+                            "profile_id": pid, "entry_date": st.session_state.ai_nutrition_date,
+                            "calories": data["calories"], "protein_g": data["protein_g"],
+                            "carbs_g": data["carbs_g"], "fat_g": data["fat_g"],
+                            "notes": st.session_state.get("ai_nutrition_desc","")[:100],
+                        }, lambda: (get_macros.clear(), get_analytics_macros.clear()))
                     if r:
-                        st.success("Saved!")
+                        _record_saved()
                         st.session_state.ai_nutrition = None
                         st.rerun()
 
@@ -1579,8 +1872,11 @@ def show_nutrition():
                         st.caption(f"P:{e.get('protein_g',0):.0f}g · C:{e.get('carbs_g',0):.0f}g · F:{e.get('fat_g',0):.0f}g")
                     with c3:
                         if st.button("×", key=f"del_mac_{e['id']}_{idx}"):
-                            if _delete(f"/macros/{e['id']}"):
+                            with _saving_overlay("מוחק..."):
+                                ok = _delete(f"/macros/{e['id']}")
+                            if ok:
                                 get_macros.clear()
+                                get_analytics_macros.clear()
                                 st.rerun()
 
 
@@ -2050,9 +2346,12 @@ def show_wellness():
             h_ml   = st.number_input("Water (ml)", 0, 20000, 500, 250)
             h_note = st.text_input("Notes", key="h_note")
             if st.form_submit_button("Log Water", use_container_width=True):
-                r = _create("/hydration/", {"profile_id": pid or None, "entry_date": str(h_date),
-                    "water_ml": float(h_ml), "notes": h_note or None}, get_hydration.clear)
-                if r: st.success("Logged!"); st.rerun()
+                with _saving_overlay("שומר..."):
+                    r = _create("/hydration/", {"profile_id": pid or None, "entry_date": str(h_date),
+                        "water_ml": float(h_ml), "notes": h_note or None}, get_hydration.clear)
+                if r:
+                    _record_saved()
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         entries = get_hydration(token, pid)
         by_date = defaultdict(list)
@@ -2068,7 +2367,11 @@ def show_wellness():
                         if e.get("notes"): st.caption(e["notes"][:50])
                     with c3:
                         if st.button("×", key=f"del_h_{e['id']}_{idx}"):
-                            if _delete(f"/hydration/{e['id']}"): get_hydration.clear(); st.rerun()
+                            with _saving_overlay("מוחק..."):
+                                ok = _delete(f"/hydration/{e['id']}")
+                            if ok:
+                                get_hydration.clear()
+                                st.rerun()
 
     with t_body:
         st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -2083,10 +2386,13 @@ def show_wellness():
                 b_wa = st.number_input("Waist (cm)", 0.0, 300.0, 0.0, 0.5)
                 b_hr = st.number_input("Resting HR (bpm, 0 = skip)", 0, 250, 0)
             if st.form_submit_button("Log Metrics", use_container_width=True):
-                r = _create("/body-metrics/", {"profile_id": pid or None, "entry_date": str(b_date),
-                    "weight_kg": float(b_w) if b_w>0 else None, "body_fat_pct": float(b_bf) if b_bf>0 else None,
-                    "waist_cm": float(b_wa) if b_wa>0 else None, "resting_hr": int(b_hr) if b_hr>=20 else None}, get_body_metrics.clear)
-                if r: st.success("Logged!"); st.rerun()
+                with _saving_overlay("שומר..."):
+                    r = _create("/body-metrics/", {"profile_id": pid or None, "entry_date": str(b_date),
+                        "weight_kg": float(b_w) if b_w>0 else None, "body_fat_pct": float(b_bf) if b_bf>0 else None,
+                        "waist_cm": float(b_wa) if b_wa>0 else None, "resting_hr": int(b_hr) if b_hr>=20 else None}, lambda: (get_body_metrics.clear(), get_analytics_metrics.clear()))
+                if r:
+                    _record_saved()
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         for idx, e in enumerate(get_body_metrics(token, pid)[:10]):
             parts = [f"{e['weight_kg']:.1f}kg" if e.get("weight_kg") else "",
@@ -2097,7 +2403,12 @@ def show_wellness():
             with c2: st.caption(" · ".join(p for p in parts if p) or "No data")
             with c3:
                 if st.button("×", key=f"del_bm_{e['id']}_{idx}"):
-                    if _delete(f"/body-metrics/{e['id']}"): get_body_metrics.clear(); st.rerun()
+                    with _saving_overlay("מוחק..."):
+                        ok = _delete(f"/body-metrics/{e['id']}")
+                    if ok:
+                        get_body_metrics.clear()
+                        get_analytics_metrics.clear()
+                        st.rerun()
 
     with t_steps:
         _STEPS_GOAL = int(get_goals(token, pid).get("daily_steps") or 10000) if pid else 10000
@@ -2113,14 +2424,17 @@ def show_wellness():
                 st_mins  = st.number_input("Active Minutes (optional)", 0, 1440, 0)
                 st_note  = st.text_input("Notes", key="st_note")
             if st.form_submit_button("Log Steps", use_container_width=True):
-                r = _create("/steps/", {
-                    "profile_id": pid or None, "entry_date": str(st_date),
-                    "steps": int(st_steps),
-                    "distance_km": float(st_dist) if st_dist > 0 else None,
-                    "active_minutes": int(st_mins) if st_mins > 0 else None,
-                    "notes": st_note or None,
-                }, get_steps.clear)
-                if r: st.success("Logged!"); st.rerun()
+                with _saving_overlay("שומר..."):
+                    r = _create("/steps/", {
+                        "profile_id": pid or None, "entry_date": str(st_date),
+                        "steps": int(st_steps),
+                        "distance_km": float(st_dist) if st_dist > 0 else None,
+                        "active_minutes": int(st_mins) if st_mins > 0 else None,
+                        "notes": st_note or None,
+                    }, lambda: (get_steps.clear(), get_analytics_steps.clear()))
+                if r:
+                    _record_saved()
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
         entries = get_steps(token, pid)[:14]
@@ -2139,7 +2453,12 @@ def show_wellness():
                     )
                 with c4:
                     if st.button("×", key=f"del_st_{e['id']}_{idx}"):
-                        if _delete(f"/steps/{e['id']}"): get_steps.clear(); st.rerun()
+                        with _saving_overlay("מוחק..."):
+                            ok = _delete(f"/steps/{e['id']}")
+                        if ok:
+                            get_steps.clear()
+                            get_analytics_steps.clear()
+                            st.rerun()
         else:
             st.info("No steps logged yet. Start tracking your daily movement!")
 
@@ -2217,17 +2536,18 @@ def show_profile():
                 if not cf_name.strip():
                     st.warning("Profile name is required.")
                 else:
-                    r = _post("/profile/", {
-                        "name": cf_name.strip(), "weight_kg": float(cf_weight),
-                        "height_cm": float(cf_height), "age": int(cf_age),
-                        "gender": cf_gender, "goal": cf_goal,
-                    })
+                    with _saving_overlay("יוצר פרופיל..."):
+                        r = _post("/profile/", {
+                            "name": cf_name.strip(), "weight_kg": float(cf_weight),
+                            "height_cm": float(cf_height), "age": int(cf_age),
+                            "gender": cf_gender, "goal": cf_goal,
+                        })
                     if r and r.get("id"):
                         get_profiles.clear()
                         st.session_state.selected_profile_id   = r["id"]
                         st.session_state.selected_profile_name = r.get("name", "")
                         st.session_state.show_create_profile   = False
-                        st.success(f"Profile '{r['name']}' created.")
+                        _queue_toast(f"פרופיל '{r['name']}' נוצר")
                         st.rerun()
                     else:
                         st.error("Could not create profile — please try again.")
@@ -2298,7 +2618,8 @@ def show_profile():
                 with cc2:
                     if st.button("Yes, remove", key=f"confirm_del_{pid}",
                                  use_container_width=True, type="primary"):
-                        ok = _delete(f"/profile/{pid}")
+                        with _saving_overlay("מוחק פרופיל..."):
+                            ok = _delete(f"/profile/{pid}")
                         if ok:
                             get_profiles.clear()
                             if is_sel:
@@ -2308,7 +2629,7 @@ def show_profile():
                                 del st.session_state["confirm_delete_id"]
                             if "edit_goals_pid" in st.session_state:
                                 del st.session_state["edit_goals_pid"]
-                            st.success(f"Profile '{pname_}' removed.")
+                            _queue_toast(f"פרופיל '{pname_}' הוסר")
                             st.rerun()
                         else:
                             st.error("Delete failed — please try again.")
@@ -2398,10 +2719,12 @@ def show_profile():
                             payload["daily_calories"] = g_cals
                         if override_prot:
                             payload["daily_protein_g"] = g_prot
-                        r = _put(f"/profile/{pid}/goals", payload)
+                        with _saving_overlay("שומר מטרות..."):
+                            r = _put(f"/profile/{pid}/goals", payload)
                         if r:
                             get_goals.clear()
-                            st.success("Goals saved.")
+                            _queue_toast("מטרות נשמרו")
+                            st.rerun()
 
 
 # ── AI Coach FAB ──────────────────────────────────────────────
@@ -2416,6 +2739,11 @@ def show_ai_fab() -> None:
 # ── Main app shell ────────────────────────────────────────────
 
 def show_main_app():
+    # Flush any queued toast from the previous run (survives st.rerun)
+    _pending = st.session_state.pop("_pending_toast", None)
+    if _pending:
+        st.toast(f"✅ {_pending}", icon=None)
+
     token    = st.session_state.token
     profiles = get_profiles(token)
     pnames   = {p.get("name","Unnamed"): p for p in profiles}

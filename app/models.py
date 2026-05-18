@@ -36,6 +36,7 @@ class TokenResponse(BaseModel):
     """JWT token response after login."""
 
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     user_id: str
     name: str
