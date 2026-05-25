@@ -245,7 +245,7 @@ FitLog/
 
 ## Demo Recording
 
-[FitLog -Screen capture walkthrough — end-to-end flow (≤2 min)](https://drive.google.com/file/d/1Cs7UaAmC05Vw2kAOirrXD2MXcfE8K2un/view?usp=sharing)
+[FitLog -Screen capture walkthrough — end-to-end flow](https://drive.google.com/file/d/1Cs7UaAmC05Vw2kAOirrXD2MXcfE8K2un/view?usp=sharing)
 
 ## AI Assistance
 
