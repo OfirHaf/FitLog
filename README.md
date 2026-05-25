@@ -243,6 +243,10 @@ FitLog/
     └── refresh.py            # async bulk cache refresh (Session 09)
 ```
 
+## Demo Recording
+
+[Screen capture walkthrough — end-to-end flow (≤2 min)](https://drive.google.com/file/d/1Cs7UaAmC05Vw2kAOirrXD2MXcfE8K2un/view?usp=sharing)
+
 ## AI Assistance
 
 This project was developed with the help of **Claude Code** (Anthropic) as an AI pair-programming assistant.
