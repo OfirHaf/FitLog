@@ -24,6 +24,7 @@ class User(SQLModel, table=True):
     email: str = Field(max_length=100, unique=True, index=True, description="Unique email for login")
     hashed_password: str
     name: str = Field(max_length=100, index=True, description="User full name")
+    role: str = Field(default="user", max_length=20, description="Role: 'user' or 'admin'")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships

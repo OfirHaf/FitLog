@@ -1,0 +1,207 @@
+### FitLog API Playground
+### Works with VS Code REST Client extension (humao.rest-client)
+### Set @base and register once to get a token, then use it everywhere.
+
+@base = http://127.0.0.1:8000
+@token = PASTE_ACCESS_TOKEN_HERE
+
+# ─── Auth ──────────────────────────────────────────────────────────────────
+
+### Register a new account
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "athlete@example.com",
+  "password": "StrongPass1!",
+  "name": "Demo Athlete"
+}
+
+###
+
+### Login (copy access_token into @token above)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "athlete@example.com",
+  "password": "StrongPass1!"
+}
+
+###
+
+### Who am I?
+GET {{base}}/auth/me
+Authorization: Bearer {{token}}
+
+# ─── Fitness Profile ───────────────────────────────────────────────────────
+
+### Create a profile
+POST {{base}}/profile/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Muscle Build",
+  "weight_kg": 80,
+  "height_cm": 178,
+  "age": 27,
+  "gender": "male",
+  "goal": "muscle"
+}
+
+###
+
+### List profiles
+GET {{base}}/profile/
+Authorization: Bearer {{token}}
+
+###
+
+### Daily protein target  (replace :id)
+GET {{base}}/profile/:id/protein-target
+Authorization: Bearer {{token}}
+
+# ─── Exercises ─────────────────────────────────────────────────────────────
+
+### Create an exercise
+POST {{base}}/exercises/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Barbell Squat",
+  "category": "strength",
+  "muscle_group": "legs",
+  "description": "King of compound movements"
+}
+
+###
+
+### List exercises
+GET {{base}}/exercises/
+Authorization: Bearer {{token}}
+
+# ─── Workout Logs ──────────────────────────────────────────────────────────
+
+### Log a set  (replace exercise_id and profile_id)
+POST {{base}}/logs/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "exercise_id": "EXERCISE_UUID",
+  "profile_id": "PROFILE_UUID",
+  "log_date": "2026-01-20",
+  "sets": 4,
+  "reps": 6,
+  "weight_kg": 120,
+  "notes": "Felt strong today"
+}
+
+###
+
+### List logs (filter by date range)
+GET {{base}}/logs/?start_date=2026-01-01&end_date=2026-01-31
+Authorization: Bearer {{token}}
+
+# ─── Nutrition ─────────────────────────────────────────────────────────────
+
+### Log macros manually
+POST {{base}}/macros/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "entry_date": "2026-01-20",
+  "calories": 2800,
+  "protein_g": 175,
+  "carbs_g": 320,
+  "fat_g": 75,
+  "notes": "Chicken, rice, veggies"
+}
+
+###
+
+### AI food analysis (Groq)
+POST {{base}}/macros/analyze-food
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "description": "200g grilled chicken breast with 150g brown rice and steamed broccoli"
+}
+
+# ─── AI Coach ──────────────────────────────────────────────────────────────
+
+### Chat with the AI coach
+POST {{base}}/ai/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "profile_id": "PROFILE_UUID",
+  "message": "I did squats and bench press today. What should I focus on tomorrow?"
+}
+
+# ─── Analytics ─────────────────────────────────────────────────────────────
+
+### Dashboard summary
+GET {{base}}/analytics/summary
+Authorization: Bearer {{token}}
+
+###
+
+### Weekly workout volume
+GET {{base}}/analytics/workout-volume
+Authorization: Bearer {{token}}
+
+###
+
+### Strength progression (1RM trend)
+GET {{base}}/analytics/strength-progress
+Authorization: Bearer {{token}}
+
+# ─── Wellness ──────────────────────────────────────────────────────────────
+
+### Log sleep
+POST {{base}}/sleep/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "entry_date": "2026-01-20",
+  "sleep_hours": 7.5,
+  "sleep_quality": 4,
+  "notes": "Slept well"
+}
+
+###
+
+### Log hydration
+POST {{base}}/hydration/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "entry_date": "2026-01-20",
+  "water_ml": 2500
+}
+
+###
+
+### Log steps
+POST {{base}}/steps/
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "entry_date": "2026-01-20",
+  "steps": 9200,
+  "distance_km": 6.8
+}
+
+# ─── Health ────────────────────────────────────────────────────────────────
+
+### API health check
+GET {{base}}/

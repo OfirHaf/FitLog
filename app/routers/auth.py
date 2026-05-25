@@ -15,7 +15,7 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.db import User
-from app.exceptions import AuthError, ConflictError, DomainValidationError, NotFoundError, RateLimitError
+from app.exceptions import AuthError, ConflictError, DomainValidationError, ForbiddenError, NotFoundError, RateLimitError
 from app.models import UserRegister, UserLogin, TokenResponse, UserResponse
 from app.security import (
     hash_password,
@@ -86,8 +86,8 @@ async def register(body: UserRegister, session: AsyncSession = Depends(get_sessi
     await session.commit()
     await session.refresh(new_user)
 
-    token = create_access_token({"user_id": str(new_user.id), "email": new_user.email})
-    refresh_token = create_refresh_token({"user_id": str(new_user.id), "email": new_user.email})
+    token = create_access_token({"user_id": str(new_user.id), "email": new_user.email, "role": new_user.role})
+    refresh_token = create_refresh_token({"user_id": str(new_user.id), "email": new_user.email, "role": new_user.role})
 
     return TokenResponse(
         access_token=token,
@@ -119,8 +119,8 @@ async def login(body: UserLogin, session: AsyncSession = Depends(get_session)):
         raise AuthError("Invalid email or password")
 
     # Create JWT token
-    token = create_access_token({"user_id": str(user.id), "email": user.email})
-    refresh_token = create_refresh_token({"user_id": str(user.id), "email": user.email})
+    token = create_access_token({"user_id": str(user.id), "email": user.email, "role": user.role})
+    refresh_token = create_refresh_token({"user_id": str(user.id), "email": user.email, "role": user.role})
 
     return TokenResponse(
         access_token=token,
@@ -203,8 +203,8 @@ async def refresh_token(
     if not user:
         raise NotFoundError("User not found")
 
-    new_access = create_access_token({"user_id": str(user.id), "email": user.email})
-    new_refresh = create_refresh_token({"user_id": str(user.id), "email": user.email})
+    new_access = create_access_token({"user_id": str(user.id), "email": user.email, "role": user.role})
+    new_refresh = create_refresh_token({"user_id": str(user.id), "email": user.email, "role": user.role})
     return TokenResponse(
         access_token=new_access,
         refresh_token=new_refresh,
@@ -245,3 +245,10 @@ async def get_current_user_from_header(
         raise NotFoundError("User not found")
 
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user_from_header)) -> User:
+    """Dependency: raises 403 if the authenticated user is not an admin."""
+    if current_user.role != "admin":
+        raise ForbiddenError("Admin access required. Your token does not have the 'admin' scope.")
+    return current_user

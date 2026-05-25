@@ -194,26 +194,65 @@ uv run pytest tests/ -v
 
 ```
 FitLog/
-├── compose.yaml
+├── compose.yaml              # Redis + API + frontend orchestration
+├── fitlog.http               # VS Code REST Client playground (EX1 bonus)
 ├── .env.example              # copy to .env and fill in keys
 ├── README.md
-├── CLAUDE.md                 # project guide
-├── docs/screenshots/         # UI images for this README
+├── CLAUDE.md                 # project guide for AI pair-programming
+├── docs/
+│   ├── screenshots/          # UI images for this README
+│   ├── EX3-notes.md          # orchestration, Redis trace, security rotation
+│   └── runbooks/
+│       └── compose.md        # launch, health check, Schemathesis, CI guide
 ├── app/
 │   ├── main.py               # FastAPI app, middleware, lifespan
 │   ├── db.py                 # SQLModel table definitions
 │   ├── models.py             # Pydantic request / response schemas
 │   ├── security.py           # JWT + bcrypt
 │   ├── cache.py              # Redis with in-process fallback
-│   ├── database.py           # async engine, session factory
+│   ├── database.py           # async engine, session factory, migration shims
 │   ├── exceptions.py         # domain exception hierarchy
-│   └── routers/              # one file per feature area
+│   ├── demo.py               # entry point: uv run python -m app.demo
+│   └── routers/
+│       ├── auth.py           # register, login, refresh, require_admin
+│       ├── admin.py          # GET /admin/stats — admin role required
+│       ├── exercises.py
+│       ├── workout_logs.py
+│       ├── macros.py         # manual logging + AI food analysis
+│       ├── profile.py        # fitness profiles + goal targets
+│       ├── ai_assistant.py   # POST /ai/chat — Groq Llama 3.3 70B
+│       ├── analytics.py      # 6 Redis-cached analytics endpoints
+│       ├── sleep.py
+│       ├── hydration.py
+│       ├── body_metrics.py
+│       ├── recovery.py
+│       └── steps.py
 ├── frontend/
 │   ├── app.py                # Streamlit dashboard (all pages)
 │   └── _ai_fab.py            # floating AI coach button
-├── alembic/                  # database migrations
-├── tests/                    # pytest suite
+├── alembic/                  # async Alembic migrations
+├── tests/                    # 85-test pytest suite
+│   ├── conftest.py           # in-memory SQLite fixtures
+│   ├── test_auth_security.py # JWT, role/scope, expired token tests
+│   ├── test_refresh.py       # anyio async tests (Session 09)
+│   ├── test_frontend.py      # Streamlit interface smoke test (EX2 bonus)
+│   └── ...                   # feature tests per router
 └── scripts/
     ├── demo.py               # end-to-end API walkthrough
-    └── refresh.py            # bulk analytics cache refresh
+    ├── demo.sh               # shell wrapper: bash scripts/demo.sh
+    └── refresh.py            # async bulk cache refresh (Session 09)
 ```
+
+## AI Assistance
+
+This project was developed with the help of **Claude Code** (Anthropic) as an AI pair-programming assistant.
+
+**How it was used:**
+
+- Generating boilerplate for FastAPI routers, SQLModel table definitions, and Pydantic schemas, then reviewing and adapting them to the fitness domain.
+- Drafting pytest fixtures and test cases, which were verified by running the full suite locally (`uv run pytest tests/`).
+- Suggesting the Redis-backed idempotency pattern for `scripts/refresh.py` (Session 09), which was then traced manually to confirm correct TTL behaviour.
+- Writing first drafts of `docs/EX3-notes.md` and `docs/runbooks/compose.md`, which were reviewed for accuracy against the running stack.
+- Generating the `.http` playground file, tested against the live API with VS Code REST Client.
+
+**Verification approach:** Every AI-generated output was run locally before committing. Tests must pass (`85 passed`), the Docker stack must start cleanly (`docker compose up`), and the demo script must complete without errors (`bash scripts/demo.sh`).

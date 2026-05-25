@@ -15,6 +15,7 @@ from app.config import settings
 from app.database import create_db_and_tables
 from app.exceptions import register_exception_handlers
 from app.routers import (
+    admin,
     ai_assistant,
     analytics,
     auth,
@@ -98,6 +99,7 @@ register_exception_handlers(app)
 # ─── Routers ───────────────────────────────────────────────────────────────
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(exercises.router)
 app.include_router(workout_logs.router)
 app.include_router(macros.router)

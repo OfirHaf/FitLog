@@ -10,14 +10,14 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.security import create_access_token
 
 
 @pytest.fixture
-def unauth_client() -> TestClient:
-    """TestClient with no Authorization header."""
-    return TestClient(app, raise_server_exceptions=True)
+def unauth_client(client: TestClient) -> TestClient:
+    """TestClient with no Authorization header, backed by the in-memory test DB."""
+    client.headers.pop("Authorization", None)
+    return client
 
 
 # ── Missing token ──────────────────────────────────────────────────────────────
@@ -101,3 +101,53 @@ def test_valid_token_accepted(client: TestClient):
     """A freshly issued token allows access to protected endpoints."""
     resp = client.get("/exercises/")
     assert resp.status_code == 200
+
+
+# ── Role / scope checks ────────────────────────────────────────────────────────
+
+def test_admin_endpoint_requires_admin_role(client: TestClient):
+    """Regular user token (role=user) must be rejected by admin endpoints with 403."""
+    # client fixture registers a normal user — role defaults to 'user'
+    resp = client.get("/admin/stats")
+    assert resp.status_code == 403
+
+
+def test_admin_endpoint_rejected_without_token(unauth_client: TestClient):
+    """Admin endpoint is also rejected when no token is provided."""
+    resp = unauth_client.get("/admin/stats")
+    assert resp.status_code == 401
+
+
+def test_admin_endpoint_rejected_with_expired_token(unauth_client: TestClient):
+    """Admin endpoint rejects expired tokens before even checking role."""
+    expired = create_access_token(
+        {"user_id": "fake-id", "email": "x@x.com", "role": "admin"},
+        expires_delta=timedelta(seconds=-1),
+    )
+    resp = unauth_client.get(
+        "/admin/stats",
+        headers={"Authorization": f"Bearer {expired}"},
+    )
+    assert resp.status_code == 401
+
+
+def test_role_claim_in_token(client: TestClient):
+    """Freshly registered users receive a token with role='user' embedded."""
+    import json, base64
+
+    resp = client.post(
+        "/auth/register",
+        json={"email": "roletest@example.com", "password": "RoleTest1!", "name": "Role Tester"},
+    )
+    # May conflict if already registered — that's fine
+    if resp.status_code == 409:
+        resp = client.post(
+            "/auth/login",
+            json={"email": "roletest@example.com", "password": "RoleTest1!"},
+        )
+    token = resp.json()["access_token"]
+    # Decode payload (middle segment, no verification needed here — just inspect)
+    payload_b64 = token.split(".")[1]
+    padding = 4 - len(payload_b64) % 4
+    payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=" * padding))
+    assert payload.get("role") == "user"

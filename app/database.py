@@ -34,6 +34,7 @@ async def create_db_and_tables():
         await conn.exec_driver_sql("PRAGMA cache_size=-64000")
         await conn.exec_driver_sql("PRAGMA temp_store=MEMORY")
         await conn.run_sync(_migrate_add_profile_id_sqlite)
+        await conn.run_sync(_migrate_add_role_sqlite)
         await conn.run_sync(SQLModel.metadata.create_all)
 
 
@@ -68,6 +69,20 @@ def _migrate_add_profile_id_sqlite(sync_conn):
         )
         sync_conn.exec_driver_sql(
             "CREATE INDEX IF NOT EXISTS ix_macro_entries_profile_id ON macro_entries(profile_id)"
+        )
+
+
+def _migrate_add_role_sqlite(sync_conn):
+    """
+    Legacy schema migration shim: adds the `role` column to `users` if missing.
+    Runs idempotently at startup for databases created before role-based access
+    was introduced. New installations get the column via SQLModel.metadata.create_all().
+    """
+    result = sync_conn.exec_driver_sql("PRAGMA table_info(users)")
+    columns = [row[1] for row in result.fetchall()]
+    if columns and "role" not in columns:
+        sync_conn.exec_driver_sql(
+            "ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'user'"
         )
 
 
